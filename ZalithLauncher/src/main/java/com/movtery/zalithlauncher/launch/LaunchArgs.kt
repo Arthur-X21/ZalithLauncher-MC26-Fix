@@ -87,17 +87,56 @@ class LaunchArgs(
         varArgMap["classpath_separator"] = ":"
         varArgMap["library_directory"] = getLibrariesHome()
         varArgMap["version_name"] = versionInfo.id
-        varArgMap["natives_directory"] = PathManager.DIR_NATIVE_LIB
+        // Use a writable app-private cache directory for native extraction.
+        val nativeRoot = File(
+            PathManager.DIR_CACHE,
+            "natives/${minecraftVersion.getVersionName()}"
+        )
+        val javaDir = File(nativeRoot, "java")
+        val jnaDir = File(nativeRoot, "jna")
+        val lwjglDir = File(nativeRoot, "lwjgl")
+        val nettyDir = File(nativeRoot, "netty")
+
+        listOf(nativeRoot, javaDir, jnaDir, lwjglDir, nettyDir).forEach { dir ->
+            if (!dir.isDirectory && !dir.mkdirs() && !dir.isDirectory) {
+                throw IllegalStateException(
+                    "Cannot create writable native directory: ${dir.absolutePath}"
+                )
+            }
+        }
+
+        varArgMap["natives_directory"] = nativeRoot.absolutePath
 
         val minecraftArgs: MutableList<String> = java.util.ArrayList()
         versionInfo.arguments?.let {
             fun String.addIgnoreListIfHas(): String {
                 if (startsWith("-DignoreList=")) return "$this,$versionFileName.jar"
-                return this
+                return when {
+                    startsWith("-Djava.library.path=") ->
+                        "-Djava.library.path=${javaDir.absolutePath}:${nativeRoot.absolutePath}:${PathManager.DIR_NATIVE_LIB}"
+                    startsWith("-Djna.tmpdir=") ->
+                        "-Djna.tmpdir=${jnaDir.absolutePath}"
+                    startsWith("-Dorg.lwjgl.system.SharedLibraryExtractPath=") ->
+                        "-Dorg.lwjgl.system.SharedLibraryExtractPath=${lwjglDir.absolutePath}"
+                    startsWith("-Dio.netty.native.workdir=") ->
+                        "-Dio.netty.native.workdir=${nettyDir.absolutePath}"
+                    else -> this
+                }
             }
-            it.jvm?.forEach { arg ->
-                if (arg is String) {
-                    minecraftArgs.add(arg.addIgnoreListIfHas())
+
+            val jvmArgs = it.jvm
+            if (jvmArgs != null) {
+                var index = 0
+                while (index < jvmArgs.size) {
+                    val arg = jvmArgs[index]
+                    if (arg == "-cp" && jvmArgs.getOrNull(index + 1) == "${classpath}") {
+                        index += 2
+                        continue
+                    }
+                    if (arg is String) {
+                        minecraftArgs.add(arg.addIgnoreListIfHas())
+                    }
+                    index++
                 }
             }
         }
