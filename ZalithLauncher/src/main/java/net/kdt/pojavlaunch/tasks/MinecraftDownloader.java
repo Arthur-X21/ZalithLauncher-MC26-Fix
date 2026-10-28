@@ -316,9 +316,10 @@ public class MinecraftDownloader {
     private void scheduleLibraryDownloads(DependentLibrary[] dependentLibraries) throws IOException {
         Tools.preProcessLibraries(dependentLibraries);
         growDownloadList(dependentLibraries.length);
+        boolean allowLwjglSdlClasses = Tools.usesLwjglSdl(dependentLibraries);
         for(DependentLibrary dependentLibrary : dependentLibraries) {
-            // Don't download lwjgl, we have our own bundled in.
-            if(dependentLibrary.name.startsWith("org.lwjgl")) continue;
+            // Keep matching SDL Java classes, but skip desktop natives and incompatible modules.
+            if(Tools.filterLibrary(dependentLibrary.name, allowLwjglSdlClasses)) continue;
             // Special handling for JNA Android natives
             if(dependentLibrary.name.startsWith("net.java.dev.jna:jna:")) {
                 scheduleNativeLibraryDownload(MAVEN_CENTRAL_REPO1, dependentLibrary);
