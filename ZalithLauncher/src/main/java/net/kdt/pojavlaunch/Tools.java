@@ -437,18 +437,53 @@ public final class Tools {
             library.downloads = new DependentLibrary.LibraryDownloads(new MinecraftLibraryArtifact());
     }
 
+    /**
+     * Detect Minecraft manifests that use the SDL-based LWJGL bindings.
+     */
+    public static boolean usesLwjglSdl(DependentLibrary[] libraries) {
+        if (libraries == null) return false;
+        for (DependentLibrary library : libraries) {
+            if (library == null || library.name == null) continue;
+            String[] coordinates = library.name.split(":");
+            if (coordinates.length == 3
+                    && "org.lwjgl".equals(coordinates[0])
+                    && "lwjgl-sdl".equals(coordinates[1])) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Keep matching LWJGL Core and SDL Java classes for SDL manifests,
+     * while filtering desktop native classifiers and other LWJGL modules.
+     */
+    public static boolean filterLibrary(String libraryName, boolean allowLwjglSdlClasses) {
+        if (libraryName == null) return false;
+
+        String[] coordinates = libraryName.split(":");
+        boolean isLwjglSdlClass = coordinates.length == 3
+                && "org.lwjgl".equals(coordinates[0])
+                && ("lwjgl".equals(coordinates[1]) || "lwjgl-sdl".equals(coordinates[1]));
+
+        if (coordinates.length > 0 && "org.lwjgl".equals(coordinates[0])) {
+            return !(allowLwjglSdlClasses && isLwjglSdlClass);
+        }
+        return libraryName.contains("jinput-platform")
+                || libraryName.contains("twitch-platform");
+    }
+
     public static String[] generateLibClasspath(JMinecraftVersionList.Version info) {
         List<String> libDir = new ArrayList<>();
+        boolean allowLwjglSdlClasses = usesLwjglSdl(info.libraries);
+
         for (DependentLibrary libItem : info.libraries) {
             if (!checkRules(libItem.rules)) continue;
 
             String libName = libItem.name;
             if (libName == null) continue;
 
-            if (libName.contains("org.lwjgl") ||
-                libName.contains("jinput-platform") ||
-                libName.contains("twitch-platform")
-            ) {
+            if (filterLibrary(libName, allowLwjglSdlClasses)) {
                 Logging.d(InfoDistributor.LAUNCHER_NAME, "Ignored unusable dependency: " + libName);
                 continue;
             }
