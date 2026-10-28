@@ -33,7 +33,10 @@ class LaunchArgs(
         argsList.addAll(getJavaArgs())
         argsList.addAll(getMinecraftJVMArgs())
         argsList.add("-cp")
-        argsList.add("${Tools.getLWJGL3ClassPath()}:$launchClassPath")
+        val lwjglClassPath = Tools.getLWJGL3ClassPath()
+        val usesLwjglSdl = Tools.usesLwjglSdl(versionInfo.libraries)
+        // SDL versions must load their matching LWJGL Core/SDL classes first.
+        argsList.add(if (usesLwjglSdl) "$launchClassPath:$lwjglClassPath" else "$lwjglClassPath:$launchClassPath")
 
         if (runtime.javaVersion > 8) {
             argsList.add("--add-exports")
