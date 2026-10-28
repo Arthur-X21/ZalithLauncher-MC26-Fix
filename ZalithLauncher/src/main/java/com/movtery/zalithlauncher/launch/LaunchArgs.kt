@@ -129,7 +129,7 @@ class LaunchArgs(
                 var index = 0
                 while (index < jvmArgs.size) {
                     val arg = jvmArgs[index]
-                    if (arg == "-cp" && jvmArgs.getOrNull(index + 1) == "${classpath}") {
+                    if (arg == "-cp" && jvmArgs.getOrNull(index + 1) == "\${classpath}") {
                         index += 2
                         continue
                     }
